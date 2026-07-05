@@ -13,7 +13,7 @@ interface ZoomableStyle extends CSSStyleDeclaration {
 	zoom: string;
 }
 
-const SELECTOR = '.markdown-source-view, .markdown-reading-view';
+const SELECTOR = '.cm-scroller, .markdown-preview-view';
 
 export default class NoteZoomPlugin extends Plugin {
 	settings: NoteZoomSettings;
