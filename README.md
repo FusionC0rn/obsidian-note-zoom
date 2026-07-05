@@ -27,7 +27,7 @@ Zoom your notes like a webpage — hold a modifier key and scroll. Each tab reme
 
 ### Manual
 
-1. Download `main.js` and `manifest.json` from the [latest release](https://github.com/FusionC0rn/obsidian-note-zoom/releases)
+1. Download `main.js` and `manifest.json` from [here](https://github.com/FusionC0rn/obsidian-note-zoom/tags))
 2. Create a folder: `<vault>/.obsidian/plugins/note-zoom/`
 3. Drop both files in
 4. Settings → Community plugins → enable **Note Zoom**
