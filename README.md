@@ -61,13 +61,9 @@ Then enable the plugin and reload.
 | Zoom in | Hold modifier key + scroll up |
 | Zoom out | Hold modifier key + scroll down |
 | Cycle presets | Click 🔍 in the status bar |
-| Reset to 100% | Command palette → `Reset zoom` |
+| Reset to 100% | `Ctrl+P` → `Reset zoom / 重置缩放` |
 
-**Commands** (bindable to hotkeys in Settings → Hotkeys):
-
-- `Zoom in / 放大`
-- `Zoom out / 缩小`
-- `Reset zoom / 重置缩放`
+All three commands (`Zoom in / 放大` · `Zoom out / 缩小` · `Reset zoom / 重置缩放`) are bindable to custom hotkeys in **Settings → Hotkeys**.
 
 ---
 
@@ -81,22 +77,6 @@ Then enable the plugin and reload.
 | Max Zoom | Slider | 3.0 | Largest allowed zoom ratio |
 | Preset Zoom Levels | Text | 0.8,0.9,1.0,1.1,1.2,1.5 | Comma-separated; click status bar to cycle |
 | Zoom Mode | Dropdown | Per Tab | Per Tab: tab-based memory. Per Note: file-based memory |
-
----
-
-## ⌨️ Commands
-
-Open the command palette (`Ctrl+P` / `⌘+P`) and search:
-
-| Command | Shortcut (bindable) |
-|---------|---------------------|
-| `Zoom in / 放大` | (none by default) |
-| `Zoom out / 缩小` | (none by default) |
-| `Reset zoom / 重置缩放` | (none by default) |
-
-Go to **Settings → Hotkeys** to assign your own shortcuts.
-
-
 
 <p align="center">
   <sub>🐣 Beta — testing with friends before community store submission</sub>
