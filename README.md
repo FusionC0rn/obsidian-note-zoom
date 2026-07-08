@@ -88,7 +88,15 @@ Then enable the plugin and reload.
 
 ## ⌨️ Commands
 
-![commands](https://yumiblog-1330999844.cos.ap-guangzhou.myqcloud.com/piccip/03-commands.png)
+Open the command palette (`Ctrl+P` / `⌘+P`) and search:
+
+| Command | Shortcut (bindable) |
+|---------|---------------------|
+| `Zoom in / 放大` | (none by default) |
+| `Zoom out / 缩小` | (none by default) |
+| `Reset zoom / 重置缩放` | (none by default) |
+
+Go to **Settings → Hotkeys** to assign your own shortcuts.
 
 
 
