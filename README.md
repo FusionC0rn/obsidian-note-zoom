@@ -82,8 +82,6 @@ Then enable the plugin and reload.
 | Preset Zoom Levels | Text | 0.8,0.9,1.0,1.1,1.2,1.5 | Comma-separated; click status bar to cycle |
 | Zoom Mode | Dropdown | Per Tab | Per Tab: tab-based memory. Per Note: file-based memory |
 
-![settings](https://yumiblog-1330999844.cos.ap-guangzhou.myqcloud.com/piccip/02-settings.png)
-
 ---
 
 ## ⌨️ Commands
