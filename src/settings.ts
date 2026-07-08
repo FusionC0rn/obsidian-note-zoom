@@ -75,6 +75,21 @@ export class NoteZoomSettingTab extends PluginSettingTab {
 					maxSetting.nameEl.setText(maxLabel());
 				}));
 
+		// ── Zoom Mode / 缩放模式 ──
+		new Setting(containerEl)
+			.setName('Zoom Mode / 缩放模式')
+			.setDesc('Per-tab: each tab remembers its own zoom. Per-note: each note file remembers its zoom independently, even when opened in the same tab. | 标签页：每个标签页独立记忆。笔记：每个笔记文件独立记忆，同一标签页内跳转自动切换缩放')
+			.addDropdown(dropdown => dropdown
+				.addOptions({
+					'tab': 'Per Tab / 按标签页',
+					'note': 'Per Note / 按笔记',
+				})
+				.setValue(this.plugin.settings.zoomMode)
+				.onChange(async (value) => {
+					this.plugin.settings.zoomMode = value as 'tab' | 'note';
+					await this.plugin.saveSettings();
+				}));
+
 		// ── Presets / 预设值 ──
 		new Setting(containerEl)
 			.setName('Preset Zoom Levels / 预设缩放值')

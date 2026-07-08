@@ -1,6 +1,6 @@
 {
 	"name": "note-zoom",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Zoom note content with Ctrl+Scroll, per-tab memory, sidebar unaffected. 滚轮缩放笔记，标签页独立记忆。",
 	"main": "main.js",
 	"scripts": {

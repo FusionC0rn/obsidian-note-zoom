@@ -1,4 +1,4 @@
-import { Plugin, Platform, WorkspaceLeaf } from 'obsidian';
+import { Plugin, Platform, WorkspaceLeaf, TFile } from 'obsidian';
 import { NoteZoomSettings, DEFAULT_SETTINGS } from './types';
 import { NoteZoomSettingTab } from './settings';
 
@@ -18,6 +18,7 @@ const SELECTOR = '.cm-scroller, .markdown-preview-view';
 export default class NoteZoomPlugin extends Plugin {
 	settings: NoteZoomSettings;
 	zoomLevels: Map<string, number>;
+	noteZoomLevels: Map<string, number>;
 	statusBarEl: HTMLElement;
 	private _saveTimer: number | null = null;
 
@@ -65,6 +66,15 @@ export default class NoteZoomPlugin extends Plugin {
 			}),
 		);
 
+		// ── 文件打开（笔记模式下：同标签页内跳转到别的笔记时重新应用缩放） ──
+		this.registerEvent(
+			this.app.workspace.on('file-open', () => {
+				if (this.settings.zoomMode !== 'note') return;
+				const leaf = this.app.workspace.activeLeaf;
+				if (leaf) Promise.resolve().then(() => this.applyToLeaf(leaf));
+			}),
+		);
+
 		// ── 布局变化（清理 + 重绘） ──
 		let timer: ReturnType<typeof setTimeout> | null = null;
 		this.registerEvent(
@@ -103,16 +113,23 @@ export default class NoteZoomPlugin extends Plugin {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, data?.settings);
 
 		// 平台检测：Mac 默认用 ⌘ Cmd，Win/Linux 用 Ctrl
-		// 仅在用户从未保存过 modifierKey 时自动设置
 		if (!data?.settings?.modifierKey) {
 			this.settings.modifierKey = Platform.isMacOS ? 'Meta' : 'Ctrl';
 		}
 
-		// 载入各标签页的缩放级别
+		// 载入标签页缩放级别
 		this.zoomLevels = new Map();
 		if (data?.zoomLevels) {
 			for (const [id, z] of Object.entries(data.zoomLevels)) {
 				this.zoomLevels.set(id, z as number);
+			}
+		}
+
+		// 载入笔记缩放级别
+		this.noteZoomLevels = new Map();
+		if (data?.noteZoomLevels) {
+			for (const [id, z] of Object.entries(data.noteZoomLevels)) {
+				this.noteZoomLevels.set(id, z as number);
 			}
 		}
 	}
@@ -121,6 +138,7 @@ export default class NoteZoomPlugin extends Plugin {
 		await this.saveData({
 			settings: this.settings,
 			zoomLevels: Object.fromEntries(this.zoomLevels),
+			noteZoomLevels: Object.fromEntries(this.noteZoomLevels),
 		});
 	}
 
@@ -133,7 +151,31 @@ export default class NoteZoomPlugin extends Plugin {
 		return leaf.view.containerEl.querySelector(SELECTOR);
 	}
 
+	/** 获取当前缩放模式的存储键 */
+	getZoomKey(leaf: WorkspaceLeaf): string {
+		if (this.settings.zoomMode === 'note') {
+			const path = this.getActiveFilePath(leaf);
+			if (path) return path;
+		}
+		return leaf.id;
+	}
+
+	/** 获取当前标签页打开的文件路径 */
+	getActiveFilePath(leaf: WorkspaceLeaf): string | null {
+		const view = leaf.view;
+		if (!view || view.getViewType() !== 'markdown') return null;
+		return (view as any).file?.path || null;
+	}
+
+	/** 获取当前缩放值 */
 	getZoom(leaf: WorkspaceLeaf): number {
+		if (this.settings.zoomMode === 'note') {
+			const path = this.getActiveFilePath(leaf);
+			if (path && this.noteZoomLevels.has(path)) {
+				return this.noteZoomLevels.get(path)!;
+			}
+			return 1.0;
+		}
 		return this.zoomLevels.has(leaf.id) ? this.zoomLevels.get(leaf.id)! : 1.0;
 	}
 
@@ -142,7 +184,12 @@ export default class NoteZoomPlugin extends Plugin {
 			this.settings.minZoom,
 			Math.min(this.settings.maxZoom, Math.round(zoom * 100) / 100),
 		);
-		this.zoomLevels.set(leaf.id, z);
+		const key = this.getZoomKey(leaf);
+		if (this.settings.zoomMode === 'note') {
+			this.noteZoomLevels.set(key, z);
+		} else {
+			this.zoomLevels.set(key, z);
+		}
 		this.applyToLeaf(leaf);
 		this.saveDebounced();
 	}
@@ -173,10 +220,19 @@ export default class NoteZoomPlugin extends Plugin {
 	}
 
 	prune() {
-		const ids = new Set<string>();
-		this.app.workspace.iterateAllLeaves((l) => ids.add(l.id));
-		for (const id of this.zoomLevels.keys()) {
-			if (!ids.has(id)) this.zoomLevels.delete(id);
+		if (this.settings.zoomMode === 'tab') {
+			const ids = new Set<string>();
+			this.app.workspace.iterateAllLeaves((l) => ids.add(l.id));
+			for (const id of this.zoomLevels.keys()) {
+				if (!ids.has(id)) this.zoomLevels.delete(id);
+			}
+		} else {
+			// 笔记模式：清理已不存在的文件
+			for (const path of this.noteZoomLevels.keys()) {
+				if (!this.app.vault.getAbstractFileByPath(path)) {
+					this.noteZoomLevels.delete(path);
+				}
+			}
 		}
 	}
 
