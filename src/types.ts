@@ -5,6 +5,8 @@ export interface NoteZoomSettings {
 	maxZoom: number;
 	presets: string;
 	zoomMode: 'tab' | 'note';
+	pinchSensitivity: number;
+	language: 'en' | 'zh';
 }
 
 export const DEFAULT_SETTINGS: NoteZoomSettings = {
@@ -14,4 +16,6 @@ export const DEFAULT_SETTINGS: NoteZoomSettings = {
 	maxZoom: 3.0,
 	presets: '0.8,0.9,1.0,1.1,1.2,1.5',
 	zoomMode: 'tab', // 默认按标签页记忆
+	pinchSensitivity: 0.1,
+	language: 'en',
 };

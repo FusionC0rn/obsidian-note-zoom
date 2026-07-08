@@ -21,6 +21,12 @@ export default class NoteZoomPlugin extends Plugin {
 	noteZoomLevels: Map<string, number>;
 	statusBarEl: HTMLElement;
 	private _saveTimer: number | null = null;
+	private _pinchBase: number = 1.0;
+
+	/** 根据插件设置的语言切换中英文 */
+	t(en: string, zh: string): string {
+		return this.settings.language === 'zh' ? zh : en;
+	}
 
 	async onload() {
 		await this.loadSettings();
@@ -37,17 +43,17 @@ export default class NoteZoomPlugin extends Plugin {
 		// ── 命令 ──
 		this.addCommand({
 			id: 'zoom-in',
-			name: 'Zoom in / 放大',
+			name: this.t('Zoom in', '放大'),
 			callback: () => this.adjust(this.settings.zoomStep),
 		});
 		this.addCommand({
 			id: 'zoom-out',
-			name: 'Zoom out / 缩小',
+			name: this.t('Zoom out', '缩小'),
 			callback: () => this.adjust(-this.settings.zoomStep),
 		});
 		this.addCommand({
 			id: 'zoom-reset',
-			name: 'Reset zoom / 重置缩放',
+			name: this.t('Reset zoom', '重置缩放'),
 			callback: () => this.setLeafZoom(1.0),
 		});
 
@@ -58,6 +64,19 @@ export default class NoteZoomPlugin extends Plugin {
 			(e: WheelEvent) => this.onWheel(e),
 			{ passive: false, capture: false },
 		);
+
+		// ── 触控板双指捏合缩放（Windows Precision Touchpad / Mac） ──
+		const gestureStart = (e: Event) => this.onGestureStart(e);
+		const gestureChange = (e: Event) => this.onGestureChange(e);
+		const gestureEnd = (e: Event) => this.onGestureEnd(e);
+		document.addEventListener('gesturestart', gestureStart, { passive: false });
+		document.addEventListener('gesturechange', gestureChange, { passive: false });
+		document.addEventListener('gestureend', gestureEnd);
+		this.register(() => {
+			document.removeEventListener('gesturestart', gestureStart);
+			document.removeEventListener('gesturechange', gestureChange);
+			document.removeEventListener('gestureend', gestureEnd);
+		});
 
 		// ── 标签切换 ──
 		this.registerEvent(
@@ -247,7 +266,10 @@ export default class NoteZoomPlugin extends Plugin {
 		this.statusBarEl.setText(`🔍 ${Math.round(z * 100)}%`);
 		this.statusBarEl.setAttribute(
 			'aria-label',
-			`${label}+Scroll to zoom · Click to cycle presets | ${label}+滚轮缩放 · 点击循环预设`,
+			this.t(
+				`${label}+Scroll to zoom · Click to cycle presets`,
+				`${label}+滚轮缩放 · 点击循环预设`,
+			),
 		);
 	}
 
@@ -269,6 +291,32 @@ export default class NoteZoomPlugin extends Plugin {
 		if (!leaf) return;
 		e.preventDefault();
 		this.adjust(e.deltaY > 0 ? -this.settings.zoomStep : this.settings.zoomStep);
+	}
+
+	// ═══════════════════════════════════════
+	//  触控板双指捏合
+	// ═══════════════════════════════════════
+
+	onGestureStart(e: Event) {
+		const leaf = this.activeLeaf();
+		if (!leaf) return;
+		e.preventDefault();
+		this._pinchBase = this.getZoom(leaf);
+	}
+
+	onGestureChange(e: Event) {
+		const ge = e as any;
+		if (typeof ge.scale !== 'number') return;
+		const leaf = this.activeLeaf();
+		if (!leaf) return;
+		e.preventDefault();
+		const s = this.settings.pinchSensitivity;
+		const newZoom = this._pinchBase * (1 + (ge.scale - 1) * s);
+		this.setLeafZoom(newZoom);
+	}
+
+	onGestureEnd(_e: Event) {
+		// 缩放已在 gesturechange 中实时应用，无需额外操作
 	}
 
 	// ═══════════════════════════════════════
