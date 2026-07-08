@@ -65,7 +65,7 @@ export default class NoteZoomPlugin extends Plugin {
 			{ passive: false, capture: false },
 		);
 
-		// ── 触控板双指捏合缩放（Windows Precision Touchpad / Mac） ──
+		// ── 触控板双指捏合缩放 ──
 		const gestureStart = (e: Event) => this.onGestureStart(e);
 		const gestureChange = (e: Event) => this.onGestureChange(e);
 		const gestureEnd = (e: Event) => this.onGestureEnd(e);
@@ -217,6 +217,7 @@ export default class NoteZoomPlugin extends Plugin {
 		if (!leaf?.view || leaf.view.getViewType() !== 'markdown') return;
 		const el = this.findView(leaf) as HTMLElement | null;
 		if (!el) return;
+
 		const z = this.getZoom(leaf);
 		(el.style as ZoomableStyle).zoom = String(z);
 		this.updateStatusBar(z);
@@ -316,7 +317,7 @@ export default class NoteZoomPlugin extends Plugin {
 	}
 
 	onGestureEnd(_e: Event) {
-		// 缩放已在 gesturechange 中实时应用，无需额外操作
+		// 缩放已在 gesturechange 中实时应用
 	}
 
 	// ═══════════════════════════════════════
