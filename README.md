@@ -1,6 +1,6 @@
 # Note Zoom
 
-Zoom your notes like a webpage — hold a modifier key and scroll. Each tab remembers its own zoom level, sidebar stays untouched.
+Hold a modifier key + scroll to visually zoom notes in and out. Lightweight, instant — each tab remembers its own zoom, sidebar stays untouched.
 
 *Mac auto-detects ⌘ Cmd, Windows/Linux defaults to Ctrl. Everything configurable.*
 
@@ -8,7 +8,7 @@ Zoom your notes like a webpage — hold a modifier key and scroll. Each tab reme
 
 ## ✨ Features
 
-- **Ctrl/Cmd + Scroll** to zoom in/out — just like a browser
+- **Ctrl/Cmd + Scroll** to zoom in/out — lightweight, instant visual scaling
 - **Per-tab memory** — every tab remembers its own zoom level independently
 - **Per-note mode** (optional) — each note file remembers its zoom, persists across tab switches
 - **Sidebar & UI unaffected** — only the note content scales, toolbar and panels stay sharp
