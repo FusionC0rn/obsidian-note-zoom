@@ -82,26 +82,7 @@ Then enable the plugin and reload.
 
 ![commands](https://yumiblog-1330999844.cos.ap-guangzhou.myqcloud.com/piccip/03-commands.png)
 
----
 
-## 🔧 Tech Stack
-
-- TypeScript + esbuild
-- No external dependencies (only `obsidian` at runtime)
-- CJS output, ES2018 target
-
-```bash
-npm run dev      # build with sourcemap
-npm run build    # type-check + production build (minified)
-```
-
----
-
-## 📄 License
-
-MIT © Fusioncorn
-
----
 
 <p align="center">
   <sub>🐣 Beta — testing with friends before community store submission</sub>
