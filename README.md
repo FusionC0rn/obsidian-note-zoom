@@ -10,16 +10,23 @@ Zoom your notes like a webpage — hold a modifier key and scroll. Each tab reme
 
 - **Ctrl/Cmd + Scroll** to zoom in/out — just like a browser
 - **Per-tab memory** — every tab remembers its own zoom level independently
-- **Sidebar unaffected** — only the note body scales, UI stays sharp
+- **Per-note mode** (optional) — each note file remembers its zoom, persists across tab switches
+- **Sidebar & UI unaffected** — only the note content scales, toolbar and panels stay sharp
 - **Status bar indicator** — shows current zoom %, click to cycle presets
 - **3 commands** — Zoom in, Zoom out, Reset zoom (hotkey-friendly)
-- **Fully configurable** — modifier key, step size, range limits, presets
+- **Fully configurable** — modifier key, step size, range limits, presets, zoom mode
 
 ---
 
 ## 🎬 Demo
 
-![zoom demo](https://yumiblog-1330999844.cos.ap-guangzhou.myqcloud.com/piccip/01-demo.gif)
+**Ctrl/Cmd + Scroll to zoom:**
+
+![zoom demo](https://yumiblog-1330999844.cos.ap-guangzhou.myqcloud.com/piccip/zoom-demo22.gif)
+
+**Click status bar to cycle presets:**
+
+![zoom demo2](https://yumiblog-1330999844.cos.ap-guangzhou.myqcloud.com/piccip/zoom-demo11.gif)
 
 ---
 
@@ -27,7 +34,7 @@ Zoom your notes like a webpage — hold a modifier key and scroll. Each tab reme
 
 ### Manual
 
-1. Download `main.js` and `manifest.json` from [here](https://github.com/FusionC0rn/obsidian-note-zoom/tags))
+1. Download `main.js` and `manifest.json` from the [latest release](https://github.com/FusionC0rn/obsidian-note-zoom/releases)
 2. Create a folder: `<vault>/.obsidian/plugins/note-zoom/`
 3. Drop both files in
 4. Settings → Community plugins → enable **Note Zoom**
@@ -73,6 +80,7 @@ Then enable the plugin and reload.
 | Min Zoom | Slider | 0.3 | Smallest allowed zoom ratio |
 | Max Zoom | Slider | 3.0 | Largest allowed zoom ratio |
 | Preset Zoom Levels | Text | 0.8,0.9,1.0,1.1,1.2,1.5 | Comma-separated; click status bar to cycle |
+| Zoom Mode | Dropdown | Per Tab | Per Tab: tab-based memory. Per Note: file-based memory |
 
 ![settings](https://yumiblog-1330999844.cos.ap-guangzhou.myqcloud.com/piccip/02-settings.png)
 
