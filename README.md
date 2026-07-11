@@ -95,7 +95,7 @@ All three commands are bindable to custom hotkeys in **Settings → Hotkeys**.
 
 ## 📄 License
 
-MIT © Fusioncorn
+MIT © 2026 Fusioncorn
 
 ---
 
