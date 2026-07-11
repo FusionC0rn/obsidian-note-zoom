@@ -1,5 +1,7 @@
 # Note Zoom
 
+[中文文档](README-ZH.md)
+
 Hold a modifier key + scroll to visually zoom notes in and out. Lightweight, instant — each tab remembers its own zoom, sidebar stays untouched.
 
 *Mac auto-detects ⌘ Cmd, Windows/Linux defaults to Ctrl. Everything configurable.*

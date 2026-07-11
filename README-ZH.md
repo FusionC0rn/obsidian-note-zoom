@@ -1,5 +1,7 @@
 # Note Zoom
 
+[English](README.md)
+
 按住修饰键 + 滚轮，即可直观地缩放笔记内容。轻量、即时——每个标签页独立记忆缩放比例，侧栏不受影响。
 
 *Mac 自动检测 ⌘ Cmd，Windows/Linux 默认 Ctrl。所有选项均可配置。*
