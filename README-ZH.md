@@ -1,4 +1,4 @@
-# Note Zoom
+# Note Zoom -笔记内缩放
 
 [English](README.md)
 
