@@ -99,6 +99,3 @@ MIT © Fusioncorn
 
 ---
 
-<p align="center">
-  <sub>🐣 Beta — testing with friends before community store submission</sub>
-</p>
