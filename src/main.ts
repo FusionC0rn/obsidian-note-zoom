@@ -1,19 +1,31 @@
-import { Plugin, Platform, WorkspaceLeaf, TFile } from 'obsidian';
+import { Plugin, Platform, WorkspaceLeaf } from 'obsidian';
 import { NoteZoomSettings, DEFAULT_SETTINGS } from './types';
 import { NoteZoomSettingTab } from './settings';
+import { onSingleOrDouble } from './dblclick';
+import { createZoomSlider } from './slider';
+import { t, type Lang } from './i18n';
 
-// Obsidian 类型补充：WorkspaceLeaf.id 和 CSSStyleDeclaration.zoom 在运行时存在但类型定义中缺失
-declare module 'obsidian' {
-	interface WorkspaceLeaf {
-		id: string;
-	}
-}
-
-interface ZoomableStyle extends CSSStyleDeclaration {
-	zoom: string;
-}
-
+// ── 常量 ──
 const SELECTOR = '.cm-scroller, .markdown-preview-view';
+const ZOOM_DEFAULT = 1.0;
+const SAVE_DEBOUNCE_MS = 300;
+const DOUBLE_CLICK_MS = 300;
+const PRESET_EPSILON = 0.005;
+const LAYOUT_DEBOUNCE_MS = 50;
+const INIT_DELAY_MS = 200;
+
+// ── 类型补丁：以下属性在 Obsidian 运行时存在但官方类型定义未包含 ──
+function leafId(leaf: WorkspaceLeaf): string {
+	return (leaf as any).id as string;
+}
+
+function setElementZoom(el: HTMLElement, z: number) {
+	(el.style as any).zoom = String(z);
+}
+
+function clearElementZoom(el: HTMLElement) {
+	(el.style as any).zoom = '';
+}
 
 export default class NoteZoomPlugin extends Plugin {
 	settings: NoteZoomSettings;
@@ -22,10 +34,12 @@ export default class NoteZoomPlugin extends Plugin {
 	statusBarEl: HTMLElement;
 	private _saveTimer: number | null = null;
 	private _pinchBase: number = 1.0;
+	private _sliderPopup: HTMLElement | null = null;
+	private _closeSlider: (() => void) | null = null;
 
-	/** 根据插件设置的语言切换中英文 */
-	t(en: string, zh: string): string {
-		return this.settings.language === 'zh' ? zh : en;
+	/** 多语言翻译：从 i18n.ts 词典按当前语言查表 */
+	private _(key: string): string {
+		return t(key, this.settings.language);
 	}
 
 	async onload() {
@@ -34,8 +48,13 @@ export default class NoteZoomPlugin extends Plugin {
 		// ── 状态栏 ──
 		this.statusBarEl = this.addStatusBarItem();
 		this.statusBarEl.addClass('note-zoom-status');
-		this.updateStatusBar(1.0);
-		this.registerDomEvent(this.statusBarEl, 'click', () => this.cyclePreset());
+		this.updateStatusBar(ZOOM_DEFAULT);
+		const handleClick = onSingleOrDouble(
+			() => this.cyclePreset(),
+			() => this.openZoomSlider(),
+			DOUBLE_CLICK_MS,
+		);
+		this.registerDomEvent(this.statusBarEl, 'click', handleClick);
 
 		// ── 设置面板 ──
 		this.addSettingTab(new NoteZoomSettingTab(this.app, this));
@@ -43,18 +62,18 @@ export default class NoteZoomPlugin extends Plugin {
 		// ── 命令 ──
 		this.addCommand({
 			id: 'zoom-in',
-			name: this.t('Zoom in', '放大'),
+			name: this._('cmd.zoomIn'),
 			callback: () => this.adjust(this.settings.zoomStep),
 		});
 		this.addCommand({
 			id: 'zoom-out',
-			name: this.t('Zoom out', '缩小'),
+			name: this._('cmd.zoomOut'),
 			callback: () => this.adjust(-this.settings.zoomStep),
 		});
 		this.addCommand({
 			id: 'zoom-reset',
-			name: this.t('Reset zoom', '重置缩放'),
-			callback: () => this.setLeafZoom(1.0),
+			name: this._('cmd.zoomReset'),
+			callback: () => this.setLeafZoom(ZOOM_DEFAULT),
 		});
 
 		// ── 滚轮 ──
@@ -65,27 +84,25 @@ export default class NoteZoomPlugin extends Plugin {
 			{ passive: false, capture: false },
 		);
 
-		// ── 触控板双指捏合缩放 ──
-		const gestureStart = (e: Event) => this.onGestureStart(e);
-		const gestureChange = (e: Event) => this.onGestureChange(e);
-		const gestureEnd = (e: Event) => this.onGestureEnd(e);
-		document.addEventListener('gesturestart', gestureStart, { passive: false });
-		document.addEventListener('gesturechange', gestureChange, { passive: false });
-		document.addEventListener('gestureend', gestureEnd);
+		// ── 触控板双指捏合 ──
+		const gs = (e: Event) => this.onGestureStart(e);
+		const gc = (e: Event) => this.onGestureChange(e);
+		const ge = (e: Event) => this.onGestureEnd(e);
+		document.addEventListener('gesturestart', gs, { passive: false });
+		document.addEventListener('gesturechange', gc, { passive: false });
+		document.addEventListener('gestureend', ge);
 		this.register(() => {
-			document.removeEventListener('gesturestart', gestureStart);
-			document.removeEventListener('gesturechange', gestureChange);
-			document.removeEventListener('gestureend', gestureEnd);
+			document.removeEventListener('gesturestart', gs);
+			document.removeEventListener('gesturechange', gc);
+			document.removeEventListener('gestureend', ge);
 		});
 
-		// ── 标签切换 ──
+		// ── 标签 / 文件切换 ──
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', (leaf) => {
 				if (leaf) Promise.resolve().then(() => this.applyToLeaf(leaf));
 			}),
 		);
-
-		// ── 文件打开（笔记模式下：同标签页内跳转到别的笔记时重新应用缩放） ──
 		this.registerEvent(
 			this.app.workspace.on('file-open', () => {
 				if (this.settings.zoomMode !== 'note') return;
@@ -94,33 +111,32 @@ export default class NoteZoomPlugin extends Plugin {
 			}),
 		);
 
-		// ── 布局变化（清理 + 重绘） ──
-		let timer: ReturnType<typeof setTimeout> | null = null;
+		// ── 布局变化 ──
+		let layoutTimer: ReturnType<typeof setTimeout> | null = null;
 		this.registerEvent(
 			this.app.workspace.on('layout-change', () => {
-				if (timer) clearTimeout(timer);
-				timer = setTimeout(() => {
+				if (layoutTimer) clearTimeout(layoutTimer);
+				layoutTimer = setTimeout(() => {
 					this.prune();
 					const leaf = this.app.workspace.activeLeaf;
 					if (leaf) this.applyToLeaf(leaf);
-				}, 50);
+				}, LAYOUT_DEBOUNCE_MS);
 			}),
 		);
 
 		// ── 初始化 ──
 		const leaf = this.app.workspace.activeLeaf;
-		if (leaf) setTimeout(() => this.applyToLeaf(leaf), 200);
+		if (leaf) setTimeout(() => this.applyToLeaf(leaf), INIT_DELAY_MS);
 	}
 
 	onunload() {
+		if (this._closeSlider) this._closeSlider();
 		try {
 			for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
 				const el = this.findView(leaf) as HTMLElement | null;
-				if (el) (el.style as ZoomableStyle).zoom = '';
+				if (el) clearElementZoom(el);
 			}
-		} catch (_) {
-			// 安全卸载
-		}
+		} catch (_) { /* 安全卸载 */ }
 	}
 
 	// ═══════════════════════════════════════
@@ -131,12 +147,10 @@ export default class NoteZoomPlugin extends Plugin {
 		const data = await this.loadData();
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, data?.settings);
 
-		// 平台检测：Mac 默认用 ⌘ Cmd，Win/Linux 用 Ctrl
 		if (!data?.settings?.modifierKey) {
 			this.settings.modifierKey = Platform.isMacOS ? 'Meta' : 'Ctrl';
 		}
 
-		// 载入标签页缩放级别
 		this.zoomLevels = new Map();
 		if (data?.zoomLevels) {
 			for (const [id, z] of Object.entries(data.zoomLevels)) {
@@ -144,7 +158,6 @@ export default class NoteZoomPlugin extends Plugin {
 			}
 		}
 
-		// 载入笔记缩放级别
 		this.noteZoomLevels = new Map();
 		if (data?.noteZoomLevels) {
 			for (const [id, z] of Object.entries(data.noteZoomLevels)) {
@@ -170,32 +183,29 @@ export default class NoteZoomPlugin extends Plugin {
 		return leaf.view.containerEl.querySelector(SELECTOR);
 	}
 
-	/** 获取当前缩放模式的存储键 */
 	getZoomKey(leaf: WorkspaceLeaf): string {
 		if (this.settings.zoomMode === 'note') {
 			const path = this.getActiveFilePath(leaf);
 			if (path) return path;
 		}
-		return leaf.id;
+		return leafId(leaf);
 	}
 
-	/** 获取当前标签页打开的文件路径 */
 	getActiveFilePath(leaf: WorkspaceLeaf): string | null {
 		const view = leaf.view;
 		if (!view || view.getViewType() !== 'markdown') return null;
 		return (view as any).file?.path || null;
 	}
 
-	/** 获取当前缩放值 */
 	getZoom(leaf: WorkspaceLeaf): number {
 		if (this.settings.zoomMode === 'note') {
 			const path = this.getActiveFilePath(leaf);
 			if (path && this.noteZoomLevels.has(path)) {
 				return this.noteZoomLevels.get(path)!;
 			}
-			return 1.0;
+			return ZOOM_DEFAULT;
 		}
-		return this.zoomLevels.has(leaf.id) ? this.zoomLevels.get(leaf.id)! : 1.0;
+		return this.zoomLevels.has(leafId(leaf)) ? this.zoomLevels.get(leafId(leaf))! : ZOOM_DEFAULT;
 	}
 
 	setZoom(leaf: WorkspaceLeaf, zoom: number) {
@@ -217,9 +227,8 @@ export default class NoteZoomPlugin extends Plugin {
 		if (!leaf?.view || leaf.view.getViewType() !== 'markdown') return;
 		const el = this.findView(leaf) as HTMLElement | null;
 		if (!el) return;
-
 		const z = this.getZoom(leaf);
-		(el.style as ZoomableStyle).zoom = String(z);
+		setElementZoom(el, z);
 		this.updateStatusBar(z);
 	}
 
@@ -242,12 +251,11 @@ export default class NoteZoomPlugin extends Plugin {
 	prune() {
 		if (this.settings.zoomMode === 'tab') {
 			const ids = new Set<string>();
-			this.app.workspace.iterateAllLeaves((l) => ids.add(l.id));
+			this.app.workspace.iterateAllLeaves((l) => ids.add(leafId(l)));
 			for (const id of this.zoomLevels.keys()) {
 				if (!ids.has(id)) this.zoomLevels.delete(id);
 			}
 		} else {
-			// 笔记模式：清理已不存在的文件
 			for (const path of this.noteZoomLevels.keys()) {
 				if (!this.app.vault.getAbstractFileByPath(path)) {
 					this.noteZoomLevels.delete(path);
@@ -265,24 +273,30 @@ export default class NoteZoomPlugin extends Plugin {
 			this.settings.modifierKey === 'Meta' ? '⌘' :
 			this.settings.modifierKey === 'Alt' ? 'Alt' : 'Ctrl';
 		this.statusBarEl.setText(`🔍 ${Math.round(z * 100)}%`);
-		this.statusBarEl.setAttribute(
-			'aria-label',
-			this.t(
-				`${label}+Scroll to zoom · Click to cycle presets`,
-				`${label}+滚轮缩放 · 点击循环预设`,
-			),
-		);
+		const tip = this._('statusBar.tooltip').replace('{mod}', label);
+		this.statusBarEl.setAttribute('aria-label', tip);
+		this.statusBarEl.setAttribute('title', tip);
+	}
+
+	/** 语言切换后刷新状态栏提示文字 */
+	refreshStatusBar() {
+		const leaf = this.app.workspace.activeLeaf;
+		if (leaf) {
+			this.applyToLeaf(leaf);
+		} else {
+			this.updateStatusBar(ZOOM_DEFAULT);
+		}
 	}
 
 	// ═══════════════════════════════════════
-	//  滚轮事件
+	//  滚轮
 	// ═══════════════════════════════════════
 
 	isModifierActive(e: WheelEvent): boolean {
 		switch (this.settings.modifierKey) {
 			case 'Meta': return e.metaKey;
 			case 'Alt': return e.altKey;
-			default: return e.ctrlKey;
+			default:    return e.ctrlKey;
 		}
 	}
 
@@ -295,7 +309,7 @@ export default class NoteZoomPlugin extends Plugin {
 	}
 
 	// ═══════════════════════════════════════
-	//  触控板双指捏合
+	//  触控板双指捏合（需先点一下笔记获取焦点）
 	// ═══════════════════════════════════════
 
 	onGestureStart(e: Event) {
@@ -316,9 +330,7 @@ export default class NoteZoomPlugin extends Plugin {
 		this.setLeafZoom(newZoom);
 	}
 
-	onGestureEnd(_e: Event) {
-		// 缩放已在 gesturechange 中实时应用
-	}
+	onGestureEnd(_e: Event) { /* 缩放已在 gesturechange 中实时应用 */ }
 
 	// ═══════════════════════════════════════
 	//  预设循环
@@ -338,8 +350,38 @@ export default class NoteZoomPlugin extends Plugin {
 		const cur = this.getZoom(leaf);
 		const presets = this.parsePresets();
 		if (presets.length === 0) return;
-		const next = presets.find(p => p > cur + 0.005) || presets[0];
+		const next = presets.find(p => p > cur + PRESET_EPSILON) || presets[0];
 		this.setZoom(leaf, next);
+	}
+
+	// ═══════════════════════════════════════
+	//  双击弹出缩放滑块
+	// ═══════════════════════════════════════
+
+	openZoomSlider() {
+		if (this._sliderPopup) return;
+		const leaf = this.activeLeaf();
+		if (!leaf) return;
+
+		const { popup, close } = createZoomSlider(
+			this.getZoom(leaf),
+			this.settings.minZoom,
+			this.settings.maxZoom,
+			this.settings.zoomStep,
+			(z) => this.setLeafZoom(z),
+			this.statusBarEl,
+			() => { this._sliderPopup = null; this._closeSlider = null; },
+		);
+		this._sliderPopup = popup;
+		this._closeSlider = close;
+	}
+
+	closeSlider() {
+		if (this._closeSlider) {
+			this._closeSlider();
+			this._sliderPopup = null;
+			this._closeSlider = null;
+		}
 	}
 
 	// ═══════════════════════════════════════
@@ -348,6 +390,6 @@ export default class NoteZoomPlugin extends Plugin {
 
 	saveDebounced() {
 		if (this._saveTimer) clearTimeout(this._saveTimer);
-		this._saveTimer = window.setTimeout(() => this.saveSettings(), 300);
+		this._saveTimer = window.setTimeout(() => this.saveSettings(), SAVE_DEBOUNCE_MS);
 	}
 }

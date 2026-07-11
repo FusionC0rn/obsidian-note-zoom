@@ -9,14 +9,15 @@ Hold a modifier key + scroll to visually zoom notes in and out. Lightweight, ins
 ## ✨ Features
 
 - **Ctrl/Cmd + Scroll** to zoom in/out — lightweight, instant visual scaling
-- **Pinch-to-zoom** — two-finger pinch on Precision Touchpads (Mac & Windows)
+- **Pinch-to-zoom** — two-finger pinch on Precision Touchpads (click the note first to activate)
 - **Per-tab memory** — every tab remembers its own zoom level independently
 - **Per-note mode** (optional) — each note file remembers its zoom, persists across tab switches
+- **Double-click slider** — double-click the 🔍 in the status bar to open a draggable zoom slider
 - **Sidebar & UI unaffected** — only the note content scales, toolbar and panels stay sharp
-- **Status bar indicator** — shows current zoom %, click to cycle presets
+- **Status bar indicator** — shows current zoom %, click to cycle presets, double-click for slider
 - **3 commands** — Zoom in, Zoom out, Reset zoom (hotkey-friendly)
-- **Language toggle** — switch between English and 中文 in plugin settings
-- **Fully configurable** — modifier key, step size, range limits, presets, zoom mode, pinch sensitivity
+- **5 languages** — English, 简体中文, 繁體中文, 日本語, 한국어
+- **Fully configurable** — modifier key, step size, range limits, presets, zoom mode
 
 ---
 
@@ -62,7 +63,7 @@ Then enable the plugin and reload.
 |--------|-----|
 | Zoom in | Hold modifier key + scroll up |
 | Zoom out | Hold modifier key + scroll down |
-| Pinch to zoom | Two-finger pinch on touchpad |
+| Open zoom slider | Double-click 🔍 in the status bar |
 | Cycle presets | Click 🔍 in the status bar |
 | Reset to 100% | `Ctrl+P` → `Reset zoom` |
 
@@ -74,7 +75,7 @@ All three commands are bindable to custom hotkeys in **Settings → Hotkeys**.
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| Language | Dropdown | English | Switch plugin UI between English and 中文 |
+| Language | Dropdown | English | 5 languages: English / 简体中文 / 繁體中文 / 日本語 / 한국어 |
 | Modifier Key | Dropdown | Ctrl (Win) / ⌘ Cmd (Mac) | Which key to hold while scrolling |
 | Zoom Step | Slider | 0.1 | How much each scroll tick changes zoom |
 | Pinch Sensitivity | Slider | 0.1 | How fast pinch-to-zoom responds |
@@ -82,6 +83,21 @@ All three commands are bindable to custom hotkeys in **Settings → Hotkeys**.
 | Max Zoom | Slider | 3.0 | Largest allowed zoom ratio |
 | Zoom Mode | Dropdown | Per Tab | Per Tab: tab-based memory. Per Note: file-based memory |
 | Preset Zoom Levels | Text | 0.8,0.9,1.0,1.1,1.2,1.5 | Comma-separated; click status bar to cycle |
+
+---
+
+## ⚠️ Known Limitations
+
+- **Pinch-to-zoom requires clicking the note first** — Obsidian's Electron runtime only dispatches gesture events after the content area receives focus. Click anywhere in the note body before pinching.
+- **Desktop-focused** — the plugin technically works on mobile but the core experience (modifier + scroll) requires a physical keyboard and mouse/trackpad.
+
+---
+
+## 📄 License
+
+MIT © Fusioncorn
+
+---
 
 <p align="center">
   <sub>🐣 Beta — testing with friends before community store submission</sub>
