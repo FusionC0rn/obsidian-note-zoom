@@ -236,6 +236,17 @@ export default class NoteZoomPlugin extends Plugin {
 		return leaf;
 	}
 
+	/** 从事件目标定位光标所在的 markdown leaf（跨窗口安全） */
+	leafFromEvent(e: Event): WorkspaceLeaf | null {
+		const target = e.target as Node | null;
+		if (!(target instanceof Element)) return null;
+		for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+			const el = leaf.view.containerEl;
+			if (el && el.contains(target)) return leaf;
+		}
+		return null;
+	}
+
 	prune() {
 		if (this.settings.zoomMode === 'tab') {
 			const ids = new Set<string>();
@@ -290,18 +301,19 @@ export default class NoteZoomPlugin extends Plugin {
 
 	onWheel(e: WheelEvent) {
 		if (!this.isModifierActive(e)) return;
-		const leaf = this.activeLeaf();
+		const leaf = this.leafFromEvent(e);
 		if (!leaf) return;
 		e.preventDefault();
-		this.adjust(e.deltaY > 0 ? -this.settings.zoomStep : this.settings.zoomStep);
+		const delta = e.deltaY > 0 ? -this.settings.zoomStep : this.settings.zoomStep;
+		this.setZoom(leaf, this.getZoom(leaf) + delta);
 	}
 
 	// ═══════════════════════════════════════
-	//  触控板双指捏合（需先点一下笔记获取焦点）
+	//  触控板双指捏合
 	// ═══════════════════════════════════════
 
 	onGestureStart(e: Event) {
-		const leaf = this.activeLeaf();
+		const leaf = this.leafFromEvent(e);
 		if (!leaf) return;
 		e.preventDefault();
 		this._pinchBase = this.getZoom(leaf);
@@ -310,12 +322,12 @@ export default class NoteZoomPlugin extends Plugin {
 	onGestureChange(e: Event) {
 		const ge = e as any;
 		if (typeof ge.scale !== 'number') return;
-		const leaf = this.activeLeaf();
+		const leaf = this.leafFromEvent(e);
 		if (!leaf) return;
 		e.preventDefault();
 		const s = this.settings.pinchSensitivity;
 		const newZoom = this._pinchBase * (1 + (ge.scale - 1) * s);
-		this.setLeafZoom(newZoom);
+		this.setZoom(leaf, newZoom);
 	}
 
 	onGestureEnd(_e: Event) { /* 缩放已在 gesturechange 中实时应用 */ }

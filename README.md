@@ -11,7 +11,8 @@ Hold a modifier key + scroll to visually zoom notes in and out. Lightweight, ins
 ## ✨ Features
 
 - **Ctrl/Cmd + Scroll** to zoom in/out — lightweight, instant visual scaling
-- **Pinch-to-zoom** — two-finger pinch on Precision Touchpads (click the note first to activate)
+- **Pinch-to-zoom** — two-finger pinch on Precision Touchpads
+- **Pop-out window support** — zoom works in notes opened in separate windows
 - **Per-tab memory** — every tab remembers its own zoom level independently
 - **Per-note mode** (optional) — each note file remembers its zoom, persists across tab switches
 - **Double-click slider** — double-click the 🔍 in the status bar to open a draggable zoom slider
@@ -90,7 +91,6 @@ All three commands are bindable to custom hotkeys in **Settings → Hotkeys**.
 
 ## ⚠️ Known Limitations
 
-- **Pinch-to-zoom requires clicking the note first** — Obsidian's Electron runtime only dispatches gesture events after the content area receives focus. Click anywhere in the note body before pinching.
 - **Desktop-focused** — the plugin technically works on mobile but the core experience (modifier + scroll) requires a physical keyboard and mouse/trackpad.
 
 ---
