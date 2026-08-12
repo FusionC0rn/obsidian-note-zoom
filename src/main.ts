@@ -36,6 +36,7 @@ export default class NoteZoomPlugin extends Plugin {
 	private _pinchBase: number = 1.0;
 	private _sliderPopup: HTMLElement | null = null;
 	private _closeSlider: (() => void) | null = null;
+	private _registeredWindows = new Set<Window>();
 
 	/** 多语言翻译：从 i18n.ts 词典按当前语言查表 */
 	private _(key: string): string {
@@ -76,26 +77,12 @@ export default class NoteZoomPlugin extends Plugin {
 			callback: () => this.setLeafZoom(ZOOM_DEFAULT),
 		});
 
-		// ── 滚轮 ──
-		this.registerDomEvent(
-			document,
-			'wheel',
-			(e: WheelEvent) => this.onWheel(e),
-			{ passive: false, capture: false },
-		);
+		// ── 滚轮 + 触控板（所有窗口）──
+		this._registerWindowEvents(window);
 
-		// ── 触控板双指捏合 ──
-		const gs = (e: Event) => this.onGestureStart(e);
-		const gc = (e: Event) => this.onGestureChange(e);
-		const ge = (e: Event) => this.onGestureEnd(e);
-		document.addEventListener('gesturestart', gs, { passive: false });
-		document.addEventListener('gesturechange', gc, { passive: false });
-		document.addEventListener('gestureend', ge);
-		this.register(() => {
-			document.removeEventListener('gesturestart', gs);
-			document.removeEventListener('gesturechange', gc);
-			document.removeEventListener('gestureend', ge);
-		});
+		// ── 窗口管理：弹出窗口注册 ──
+		// 通过 layout-change 自动发现弹出窗口的 document 并注册事件
+		this._ensureWindowEvents();
 
 		// ── 标签 / 文件切换 ──
 		this.registerEvent(
@@ -111,12 +98,13 @@ export default class NoteZoomPlugin extends Plugin {
 			}),
 		);
 
-		// ── 布局变化 ──
+		// ── 布局变化（含弹出窗口检测）──
 		let layoutTimer: ReturnType<typeof setTimeout> | null = null;
 		this.registerEvent(
 			this.app.workspace.on('layout-change', () => {
 				if (layoutTimer) clearTimeout(layoutTimer);
 				layoutTimer = setTimeout(() => {
+					this._ensureWindowEvents();
 					this.prune();
 					const leaf = this.app.workspace.activeLeaf;
 					if (leaf) this.applyToLeaf(leaf);
@@ -331,6 +319,46 @@ export default class NoteZoomPlugin extends Plugin {
 	}
 
 	onGestureEnd(_e: Event) { /* 缩放已在 gesturechange 中实时应用 */ }
+
+	// ═══════════════════════════════════════
+	//  多窗口事件管理
+	// ═══════════════════════════════════════
+
+	/** 在指定 window 的 document 上注册 wheel + gesture 事件，幂等 */
+	private _registerWindowEvents(win: Window) {
+		if (this._registeredWindows.has(win)) return;
+		this._registeredWindows.add(win);
+
+		// Wheel
+		this.registerDomEvent(
+			win.document,
+			'wheel',
+			(e: WheelEvent) => this.onWheel(e),
+			{ passive: false, capture: false },
+		);
+
+		// Gesture (Safari 双指捏合)
+		const gs = (e: Event) => this.onGestureStart(e);
+		const gc = (e: Event) => this.onGestureChange(e);
+		const ge = (e: Event) => this.onGestureEnd(e);
+		win.document.addEventListener('gesturestart', gs, { passive: false });
+		win.document.addEventListener('gesturechange', gc, { passive: false });
+		win.document.addEventListener('gestureend', ge);
+		this.register(() => {
+			win.document.removeEventListener('gesturestart', gs);
+			win.document.removeEventListener('gesturechange', gc);
+			win.document.removeEventListener('gestureend', ge);
+			this._registeredWindows.delete(win);
+		});
+	}
+
+	/** 遍历所有 leaf，为每个 leaf 所属的 window 注册事件 */
+	private _ensureWindowEvents() {
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			const doc = leaf.view?.containerEl?.ownerDocument;
+			if (doc?.defaultView) this._registerWindowEvents(doc.defaultView);
+		});
+	}
 
 	// ═══════════════════════════════════════
 	//  预设循环
