@@ -3,16 +3,23 @@ import { NoteZoomSettings, DEFAULT_SETTINGS } from './types';
 import { NoteZoomSettingTab } from './settings';
 import { onSingleOrDouble } from './dblclick';
 import { createZoomSlider } from './slider';
+import { createZoomIndicator } from './zoom-indicator';
 import { t, type Lang } from './i18n';
 
 // ── 常量 ──
-const SELECTOR = '.cm-scroller, .markdown-preview-view';
+// 阅读模式：外层 .markdown-reading-view（新版 Obsidian）优先，内层 .markdown-preview-view 兜底老版本
+const SELECTOR_PREVIEW = '.markdown-reading-view, .markdown-preview-view';
+// 编辑 / Live Preview 模式
+const SELECTOR_SOURCE = '.cm-scroller';
+// getMode 不可用（老版本）时的历史行为
+const SELECTOR_LEGACY = '.cm-scroller, .markdown-preview-view';
 const ZOOM_DEFAULT = 1.0;
 const SAVE_DEBOUNCE_MS = 300;
 const DOUBLE_CLICK_MS = 300;
 const PRESET_EPSILON = 0.005;
 const LAYOUT_DEBOUNCE_MS = 50;
 const INIT_DELAY_MS = 200;
+const PINCH_THROTTLE_MS = 16;
 
 // ── 类型补丁：以下属性在 Obsidian 运行时存在但官方类型定义未包含 ──
 function leafId(leaf: WorkspaceLeaf): string {
@@ -37,6 +44,11 @@ export default class NoteZoomPlugin extends Plugin {
 	private _sliderPopup: HTMLElement | null = null;
 	private _closeSlider: (() => void) | null = null;
 	private _registeredWindows = new Set<Window>();
+	private _indicator = createZoomIndicator();
+	private _viewElCache = new WeakMap<WorkspaceLeaf, { el: HTMLElement; mode: string }>();
+	private _leafObservers = new Map<string, { leaf: WorkspaceLeaf; observer: MutationObserver }>();
+	private _pinchPending: { leaf: WorkspaceLeaf; zoom: number; ev: Event } | null = null;
+	private _lastPinchApply = 0;
 
 	/** 多语言翻译：从 i18n.ts 词典按当前语言查表 */
 	private _(key: string): string {
@@ -105,6 +117,7 @@ export default class NoteZoomPlugin extends Plugin {
 				if (layoutTimer) clearTimeout(layoutTimer);
 				layoutTimer = setTimeout(() => {
 					this._ensureWindowEvents();
+					this._syncLeafObservers();
 					this.prune();
 					const leaf = this.app.workspace.activeLeaf;
 					if (leaf) this.applyToLeaf(leaf);
@@ -114,11 +127,17 @@ export default class NoteZoomPlugin extends Plugin {
 
 		// ── 初始化 ──
 		const leaf = this.app.workspace.activeLeaf;
-		if (leaf) setTimeout(() => this.applyToLeaf(leaf), INIT_DELAY_MS);
+		if (leaf) {
+			this._syncLeafObservers();
+			setTimeout(() => this.applyToLeaf(leaf), INIT_DELAY_MS);
+		}
 	}
 
 	onunload() {
 		if (this._closeSlider) this._closeSlider();
+		this._indicator.destroy();
+		for (const entry of this._leafObservers.values()) entry.observer.disconnect();
+		this._leafObservers.clear();
 		try {
 			for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
 				const el = this.findView(leaf) as HTMLElement | null;
@@ -137,6 +156,10 @@ export default class NoteZoomPlugin extends Plugin {
 
 		if (!data?.settings?.modifierKey) {
 			this.settings.modifierKey = Platform.isMacOS ? 'Meta' : 'Ctrl';
+		}
+
+		if (!data?.settings?.language) {
+			this.settings.language = this._detectObsidianLanguage();
 		}
 
 		this.zoomLevels = new Map();
@@ -162,13 +185,100 @@ export default class NoteZoomPlugin extends Plugin {
 		});
 	}
 
+	/** 首次运行时跟随 Obsidian 界面语言 */
+	private _detectObsidianLanguage(): Lang {
+		try {
+			const locale = localStorage.getItem('language') || '';
+			if (locale.startsWith('zh-TW') || locale.startsWith('zh-HK')) return 'zh-TW';
+			if (locale.startsWith('zh')) return 'zh';
+			if (locale.startsWith('ja')) return 'ja';
+			if (locale.startsWith('ko')) return 'ko';
+		} catch (_) { /* localStorage 不可用时回退英文 */ }
+		return 'en';
+	}
+
 	// ═══════════════════════════════════════
 	//  核心缩放逻辑
 	// ═══════════════════════════════════════
 
 	findView(leaf: WorkspaceLeaf): Element | null {
 		if (!leaf?.view?.containerEl) return null;
-		return leaf.view.containerEl.querySelector(SELECTOR);
+		const container = leaf.view.containerEl;
+		// 模式感知：阅读模式只查阅读视图、编辑模式只查 cm-scroller，
+		// 从机制上杜绝命中「隐藏的编辑器元素」
+		const mode = this._viewMode(leaf.view);
+		const cached = this._viewElCache.get(leaf);
+		if (cached && cached.mode === mode && container.contains(cached.el)) {
+			return cached.el;
+		}
+		const el = container.querySelector(this._selectorForMode(mode)) as HTMLElement | null;
+		if (el) this._viewElCache.set(leaf, { el, mode });
+		return el;
+	}
+
+	/** 读取视图模式：'preview' / 'source'；老版本无 getMode 时返回空串（走兼容选择器） */
+	private _viewMode(view: any): string {
+		if (typeof view?.getMode === 'function') return view.getMode();
+		return '';
+	}
+
+	private _selectorForMode(mode: string): string {
+		if (mode === 'preview') return SELECTOR_PREVIEW;
+		if (mode === 'source') return SELECTOR_SOURCE;
+		return SELECTOR_LEGACY;
+	}
+
+	/** 确保 leaf 有 DOM 哨兵：视图元素增删或 class 翻转（模式切换的两种形态）时，在重绘前立即重应用缩放 */
+	private _ensureLeafObserver(leaf: WorkspaceLeaf) {
+		const id = leafId(leaf);
+		if (this._leafObservers.has(id)) return;
+		const container = leaf.view.containerEl;
+		// 观察 leaf 根容器：模式切换可能是容器替换（childList）或 class 翻转（attributes）
+		const root = container.closest('.workspace-leaf') || container;
+		const observer = new MutationObserver((records) => {
+			for (const r of records) {
+				if (r.type === 'attributes') {
+					// class 翻转（如模式切换的显隐切换）——只关心落在缩放目标或其祖先上的变更
+					if (this._isZoomTargetNode(r.target)) { this.applyToLeaf(leaf); return; }
+					continue;
+				}
+				for (let i = 0; i < r.addedNodes.length; i++) {
+					if (this._isZoomTargetNode(r.addedNodes[i])) { this.applyToLeaf(leaf); return; }
+				}
+				for (let i = 0; i < r.removedNodes.length; i++) {
+					if (this._isZoomTargetNode(r.removedNodes[i])) { this.applyToLeaf(leaf); return; }
+				}
+			}
+		});
+		observer.observe(root, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['class'],
+		});
+		this._leafObservers.set(id, { leaf, observer });
+	}
+
+	/** 同步所有 markdown leaf 的哨兵：新建缺失的、断开已关闭的 */
+	private _syncLeafObservers() {
+		const alive = new Set<string>();
+		for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+			alive.add(leafId(leaf));
+			this._ensureLeafObserver(leaf);
+		}
+		for (const [id, entry] of this._leafObservers) {
+			if (!alive.has(id)) {
+				entry.observer.disconnect();
+				this._leafObservers.delete(id);
+			}
+		}
+	}
+
+	/** 变更节点是否涉及缩放目标元素（本身匹配或包含其一）——用于过滤打字等无关变更 */
+	private _isZoomTargetNode(node: Node): boolean {
+		if (!(node instanceof Element)) return false;
+		if (node.matches(SELECTOR_PREVIEW) || node.matches(SELECTOR_SOURCE)) return true;
+		return !!(node.querySelector(SELECTOR_PREVIEW) || node.querySelector(SELECTOR_SOURCE));
 	}
 
 	getZoomKey(leaf: WorkspaceLeaf): string {
@@ -196,7 +306,7 @@ export default class NoteZoomPlugin extends Plugin {
 		return this.zoomLevels.has(leafId(leaf)) ? this.zoomLevels.get(leafId(leaf))! : ZOOM_DEFAULT;
 	}
 
-	setZoom(leaf: WorkspaceLeaf, zoom: number) {
+	setZoom(leaf: WorkspaceLeaf, zoom: number): number {
 		const z = Math.max(
 			this.settings.minZoom,
 			Math.min(this.settings.maxZoom, Math.round(zoom * 100) / 100),
@@ -209,6 +319,7 @@ export default class NoteZoomPlugin extends Plugin {
 		}
 		this.applyToLeaf(leaf);
 		this.saveDebounced();
+		return z;
 	}
 
 	applyToLeaf(leaf: WorkspaceLeaf) {
@@ -305,7 +416,8 @@ export default class NoteZoomPlugin extends Plugin {
 		if (!leaf) return;
 		e.preventDefault();
 		const delta = e.deltaY > 0 ? -this.settings.zoomStep : this.settings.zoomStep;
-		this.setZoom(leaf, this.getZoom(leaf) + delta);
+		const z = this.setZoom(leaf, this.getZoom(leaf) + delta);
+		this._indicator.show(e, z);
 	}
 
 	// ═══════════════════════════════════════
@@ -316,6 +428,7 @@ export default class NoteZoomPlugin extends Plugin {
 		const leaf = this.leafFromEvent(e);
 		if (!leaf) return;
 		e.preventDefault();
+		this._flushPinch();
 		this._pinchBase = this.getZoom(leaf);
 	}
 
@@ -327,10 +440,24 @@ export default class NoteZoomPlugin extends Plugin {
 		e.preventDefault();
 		const s = this.settings.pinchSensitivity;
 		const newZoom = this._pinchBase * (1 + (ge.scale - 1) * s);
-		this.setZoom(leaf, newZoom);
+		// 节流：始终存最新值，距上次应用满 16ms 才真正应用，
+		// 节流窗口内的事件由后续事件或 gestureend 冲刷，无定时器、无卡死状态
+		this._pinchPending = { leaf, zoom: newZoom, ev: e };
+		if (performance.now() - this._lastPinchApply >= PINCH_THROTTLE_MS) {
+			this._flushPinch();
+		}
 	}
 
-	onGestureEnd(_e: Event) { /* 缩放已在 gesturechange 中实时应用 */ }
+	onGestureEnd(_e: Event) { this._flushPinch(); }
+
+	private _flushPinch() {
+		const p = this._pinchPending;
+		this._pinchPending = null;
+		if (!p) return;
+		this._lastPinchApply = performance.now();
+		const z = this.setZoom(p.leaf, p.zoom);
+		this._indicator.show(p.ev, z);
+	}
 
 	// ═══════════════════════════════════════
 	//  多窗口事件管理
