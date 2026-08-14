@@ -49,6 +49,7 @@ export default class NoteZoomPlugin extends Plugin {
 	private _leafObservers = new Map<string, { leaf: WorkspaceLeaf; observer: MutationObserver }>();
 	private _pinchPending: { leaf: WorkspaceLeaf; zoom: number; ev: Event } | null = null;
 	private _lastPinchApply = 0;
+	private _statusZoom = ZOOM_DEFAULT;
 
 	/** 多语言翻译：从 i18n.ts 词典按当前语言查表 */
 	private _(key: string): string {
@@ -73,26 +74,7 @@ export default class NoteZoomPlugin extends Plugin {
 		this.addSettingTab(new NoteZoomSettingTab(this.app, this));
 
 		// ── 命令 ──
-		this.addCommand({
-			id: 'zoom-in',
-			name: this._('cmd.zoomIn'),
-			callback: () => this.adjust(this.settings.zoomStep),
-		});
-		this.addCommand({
-			id: 'zoom-out',
-			name: this._('cmd.zoomOut'),
-			callback: () => this.adjust(-this.settings.zoomStep),
-		});
-		this.addCommand({
-			id: 'zoom-reset',
-			name: this._('cmd.zoomReset'),
-			callback: () => this.setLeafZoom(ZOOM_DEFAULT),
-		});
-		this.addCommand({
-			id: 'zoom-reset-all',
-			name: this._('cmd.resetAll'),
-			callback: () => { void this.resetAllZoom(); },
-		});
+		this.registerCommands();
 
 		// ── 滚轮 + 触控板（所有窗口）──
 		this._registerWindowEvents(window);
@@ -395,6 +377,7 @@ export default class NoteZoomPlugin extends Plugin {
 	// ═══════════════════════════════════════
 
 	updateStatusBar(z: number) {
+		this._statusZoom = z;
 		const label =
 			this.settings.modifierKey === 'Meta' ? '⌘' :
 			this.settings.modifierKey === 'Alt' ? 'Alt' : 'Ctrl';
@@ -407,11 +390,48 @@ export default class NoteZoomPlugin extends Plugin {
 	/** 语言切换后刷新状态栏提示文字 */
 	refreshStatusBar() {
 		const leaf = this.app.workspace.activeLeaf;
-		if (leaf) {
+		if (leaf && leaf.view?.getViewType() === 'markdown') {
 			this.applyToLeaf(leaf);
 		} else {
-			this.updateStatusBar(ZOOM_DEFAULT);
+			// 设置面板等非 markdown 视图处于焦点时，仅按当前缩放刷新提示文字
+			this.updateStatusBar(this._statusZoom);
 		}
+	}
+
+	/** 注册全部命令（onload 与语言切换后共用） */
+	private registerCommands() {
+		this.addCommand({
+			id: 'zoom-in',
+			name: this._('cmd.zoomIn'),
+			callback: () => this.adjust(this.settings.zoomStep),
+		});
+		this.addCommand({
+			id: 'zoom-out',
+			name: this._('cmd.zoomOut'),
+			callback: () => this.adjust(-this.settings.zoomStep),
+		});
+		this.addCommand({
+			id: 'zoom-reset',
+			name: this._('cmd.zoomReset'),
+			callback: () => this.setLeafZoom(ZOOM_DEFAULT),
+		});
+		this.addCommand({
+			id: 'zoom-reset-all',
+			name: this._('cmd.resetAll'),
+			callback: () => { void this.resetAllZoom(); },
+		});
+	}
+
+	/** 语言切换后重注册命令（命令名在注册时快照，需重新注册才生效） */
+	refreshCommands() {
+		// 类型补丁：app.commands 在 1.13 类型定义中未暴露，运行时存在
+		const commands = (this.app as any).commands as { removeCommand?: (id: string) => void } | undefined;
+		if (!commands || typeof commands.removeCommand !== 'function') return; // 旧版 Obsidian 无此 API
+		const prefix = `${this.manifest.id}:`;
+		for (const id of ['zoom-in', 'zoom-out', 'zoom-reset', 'zoom-reset-all']) {
+			commands.removeCommand(prefix + id);
+		}
+		this.registerCommands();
 	}
 
 	// ═══════════════════════════════════════

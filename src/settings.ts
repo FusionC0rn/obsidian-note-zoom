@@ -40,6 +40,7 @@ export class NoteZoomSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.display();
 					this.plugin.refreshStatusBar();
+					this.plugin.refreshCommands();
 				}));
 
 		// ── Modifier Key ──
