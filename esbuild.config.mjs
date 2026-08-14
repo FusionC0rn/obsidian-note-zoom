@@ -1,7 +1,15 @@
 import esbuild from 'esbuild';
 import process from 'process';
-import builtins from 'builtin-modules';
 import fs from 'fs';
+
+// Node 内建模块清单（替代已弃用的 builtin-modules 包）
+const builtins = [
+	'assert', 'buffer', 'child_process', 'cluster', 'console', 'constants', 'crypto',
+	'dgram', 'dns', 'domain', 'events', 'fs', 'http', 'https', 'module', 'net', 'os',
+	'path', 'perf_hooks', 'process', 'punycode', 'querystring', 'readline', 'repl',
+	'stream', 'string_decoder', 'sys', 'timers', 'tls', 'trace_events', 'tty', 'url',
+	'util', 'v8', 'vm', 'worker_threads', 'zlib',
+];
 
 const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
 const manifest = JSON.parse(fs.readFileSync('./manifest.json', 'utf-8'));

@@ -12,37 +12,35 @@ export function createZoomSlider(
 	anchor: HTMLElement,
 	onClose?: () => void,
 ) {
-	const popup = document.createElement('div');
-	popup.addClass('note-zoom-slider-popup');
+	const popup = document.body.createEl('div', { cls: 'note-zoom-slider-popup' });
 
 	const rect = anchor.getBoundingClientRect();
 	const bottom = `${window.innerHeight - rect.top + 8}px`;
 	const left = `${Math.min(rect.left, window.innerWidth - 250)}px`;
-	const anyPopup = popup as any;
-	if (typeof anyPopup.setCssProps === 'function') {
-		anyPopup.setCssProps({ '--nz-bottom': bottom, '--nz-left': left });
+	const cssPopup = popup as HTMLElement & { setCssProps?: (props: Record<string, string>) => void };
+	if (typeof cssPopup.setCssProps === 'function') {
+		cssPopup.setCssProps({ '--nz-bottom': bottom, '--nz-left': left });
 	} else {
 		popup.style.bottom = bottom;
 		popup.style.left = left;
 	}
 
-	const label = document.createElement('span');
-	label.textContent = `${Math.round(cur * 100)}%`;
-
-	const input = document.createElement('input');
-	input.type = 'range';
-	input.min = String(min);
-	input.max = String(max);
-	input.step = String(step);
-	input.value = String(cur);
+	let label: HTMLElement;
+	const input = popup.createEl('input', {
+		attr: {
+			type: 'range',
+			min: String(min),
+			max: String(max),
+			step: String(step),
+			value: String(cur),
+		},
+	});
 	input.addEventListener('input', () => {
 		const z = parseFloat(input.value);
 		label.textContent = `${Math.round(z * 100)}%`;
 		onChange(z);
 	});
-
-	popup.append(input, label);
-	document.body.appendChild(popup);
+	label = popup.createEl('span', { text: `${Math.round(cur * 100)}%` });
 
 	const close = () => {
 		popup.remove();

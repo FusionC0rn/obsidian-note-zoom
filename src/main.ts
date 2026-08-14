@@ -1,4 +1,5 @@
-import { getLanguage, MarkdownView, Notice, Plugin, Platform, WorkspaceLeaf } from 'obsidian';
+import * as obsidian from 'obsidian';
+import { MarkdownView, Notice, Plugin, Platform, WorkspaceLeaf } from 'obsidian';
 import { NoteZoomSettings, DEFAULT_SETTINGS } from './types';
 import { NoteZoomSettingTab } from './settings';
 import { onSingleOrDouble } from './dblclick';
@@ -23,15 +24,15 @@ const PINCH_THROTTLE_MS = 16;
 
 // ── 类型补丁：以下属性在 Obsidian 运行时存在但官方类型定义未包含 ──
 function leafId(leaf: WorkspaceLeaf): string {
-	return (leaf as any).id as string;
+	return ((leaf as unknown as { id?: string }).id) ?? '';
 }
 
 function setElementZoom(el: Element, z: number) {
-	((el as HTMLElement).style as any).zoom = String(z);
+	(el as HTMLElement).style.setProperty('zoom', String(z));
 }
 
 function clearElementZoom(el: Element) {
-	((el as HTMLElement).style as any).zoom = '';
+	(el as HTMLElement).style.removeProperty('zoom');
 }
 
 export default class NoteZoomPlugin extends Plugin {
@@ -175,8 +176,10 @@ export default class NoteZoomPlugin extends Plugin {
 	/** 首次运行时跟随 Obsidian 界面语言 */
 	private _detectObsidianLanguage(): Lang {
 		try {
-			// 优先官方 getLanguage()（1.8.7+），老版本回退 localStorage
-			const locale = typeof getLanguage === 'function' ? getLanguage() : localStorage.getItem('language') || '';
+			// 优先官方 getLanguage()（1.8.7+）；minAppVersion 1.0.0 下该导出可能不存在，
+			// 因此通过命名空间动态访问并回退 localStorage
+			const api = obsidian as { getLanguage?: () => string };
+			const locale = typeof api.getLanguage === 'function' ? api.getLanguage() : localStorage.getItem('language') || '';
 			if (locale.startsWith('zh-TW') || locale.startsWith('zh-HK')) return 'zh-TW';
 			if (locale.startsWith('zh')) return 'zh';
 			if (locale.startsWith('ja')) return 'ja';
@@ -205,8 +208,9 @@ export default class NoteZoomPlugin extends Plugin {
 	}
 
 	/** 读取视图模式：'preview' / 'source'；老版本无 getMode 时返回空串（走兼容选择器） */
-	private _viewMode(view: any): string {
-		if (typeof view?.getMode === 'function') return view.getMode();
+	private _viewMode(view: unknown): string {
+		const v = view as { getMode?: () => string } | null | undefined;
+		if (typeof v?.getMode === 'function') return v.getMode();
 		return '';
 	}
 
@@ -280,7 +284,7 @@ export default class NoteZoomPlugin extends Plugin {
 	getActiveFilePath(leaf: WorkspaceLeaf): string | null {
 		const view = leaf.view;
 		if (!view || view.getViewType() !== 'markdown') return null;
-		return (view as any).file?.path || null;
+		return (view as { file?: { path?: string } }).file?.path || null;
 	}
 
 	getZoom(leaf: WorkspaceLeaf): number {
@@ -425,7 +429,7 @@ export default class NoteZoomPlugin extends Plugin {
 	/** 语言切换后重注册命令（命令名在注册时快照，需重新注册才生效） */
 	refreshCommands() {
 		// 类型补丁：app.commands 在 1.13 类型定义中未暴露，运行时存在
-		const commands = (this.app as any).commands as { removeCommand?: (id: string) => void } | undefined;
+		const commands = (this.app as unknown as { commands?: { removeCommand?: (id: string) => void } }).commands;
 		if (!commands || typeof commands.removeCommand !== 'function') return; // 旧版 Obsidian 无此 API
 		const prefix = `${this.manifest.id}:`;
 		for (const id of ['zoom-in', 'zoom-out', 'zoom-reset', 'zoom-reset-all']) {

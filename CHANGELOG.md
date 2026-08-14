@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.2 — 2026-08-14
+
+Second store review compliance pass:
+
+- `getLanguage()` now accessed dynamically with legacy fallback (keeps `minAppVersion` 1.0.0 valid)
+- Replaced `any` type patches with narrow typed casts
+- Zoom applied via `style.setProperty`/`removeProperty`
+- Slider built with Obsidian's `createEl` helper
+- Removed deprecated `builtin-modules` dependency (inline module list)
+
 ## 1.0.1 — 2026-08-14
 
 Store review compliance release:

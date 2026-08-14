@@ -25,14 +25,14 @@ export function createZoomIndicator() {
 		b.textContent = `${Math.round(zoom * 100)}%`;
 
 		// 优先事件坐标（光标跟随），否则窗口中央（捏合事件可能无坐标）
-		const ev = e as any;
+		const ev = e as MouseEvent;
 		const x = typeof ev.clientX === 'number' ? ev.clientX + 16 : win.innerWidth / 2;
 		const y = typeof ev.clientY === 'number' ? ev.clientY + 16 : win.innerHeight / 2;
 		const left = `${Math.min(x, win.innerWidth - 70)}px`;
 		const top = `${Math.min(y, win.innerHeight - 40)}px`;
-		const anyB = b as any;
-		if (typeof anyB.setCssProps === 'function') {
-			anyB.setCssProps({ '--nz-x': left, '--nz-y': top });
+		const cssB = b as HTMLElement & { setCssProps?: (props: Record<string, string>) => void };
+		if (typeof cssB.setCssProps === 'function') {
+			cssB.setCssProps({ '--nz-x': left, '--nz-y': top });
 		} else {
 			b.style.left = left;
 			b.style.top = top;
