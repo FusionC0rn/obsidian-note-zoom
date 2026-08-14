@@ -10,7 +10,7 @@ export function onSingleOrDouble(
 	let timer: number | null = null;
 	return () => {
 		if (timer) {
-			clearTimeout(timer);
+			window.clearTimeout(timer);
 			timer = null;
 			onDouble();
 		} else {

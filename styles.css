@@ -1,0 +1,49 @@
+/* Note Zoom 静态样式 */
+
+.note-zoom-slider-popup {
+	position: fixed;
+	z-index: 1000;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 12px 16px;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 220px;
+	bottom: var(--nz-bottom, auto);
+	left: var(--nz-left, auto);
+}
+
+.note-zoom-indicator {
+	position: fixed;
+	z-index: 1000;
+	pointer-events: none;
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 4px 10px;
+	font-size: 13px;
+	font-weight: 600;
+	opacity: 0;
+	transition: opacity 150ms ease;
+	left: var(--nz-x, 50%);
+	top: var(--nz-y, 50%);
+}
+
+.note-zoom-indicator.is-visible {
+	opacity: 1;
+}
+
+.note-zoom-slider-popup span {
+	font-size: 14px;
+	font-weight: 600;
+	min-width: 40px;
+	text-align: right;
+}
+
+.note-zoom-slider-popup input {
+	flex: 1;
+}

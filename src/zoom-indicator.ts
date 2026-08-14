@@ -2,6 +2,7 @@
  * 缩放反馈气泡：
  * 每个窗口一个气泡实例，跟随光标显示当前缩放百分比，
  * 停止操作后自动淡出。支持弹出窗口（按事件所属 document 创建元素）。
+ * 静态样式在 styles.css，动态定位用 setCssProps（老版本回退直接赋值）。
  */
 export function createZoomIndicator() {
 	const bubbles = new Map<Window, HTMLElement>();
@@ -27,14 +28,21 @@ export function createZoomIndicator() {
 		const ev = e as any;
 		const x = typeof ev.clientX === 'number' ? ev.clientX + 16 : win.innerWidth / 2;
 		const y = typeof ev.clientY === 'number' ? ev.clientY + 16 : win.innerHeight / 2;
-		b.style.left = `${Math.min(x, win.innerWidth - 70)}px`;
-		b.style.top = `${Math.min(y, win.innerHeight - 40)}px`;
-		b.style.opacity = '1';
+		const left = `${Math.min(x, win.innerWidth - 70)}px`;
+		const top = `${Math.min(y, win.innerHeight - 40)}px`;
+		const anyB = b as any;
+		if (typeof anyB.setCssProps === 'function') {
+			anyB.setCssProps({ '--nz-x': left, '--nz-y': top });
+		} else {
+			b.style.left = left;
+			b.style.top = top;
+		}
+		b.classList.add('is-visible');
 
 		const old = timers.get(win);
 		if (old) window.clearTimeout(old);
 		timers.set(win, window.setTimeout(() => {
-			b.style.opacity = '0';
+			b.classList.remove('is-visible');
 			timers.delete(win);
 		}, HIDE_DELAY_MS));
 	}
@@ -42,17 +50,6 @@ export function createZoomIndicator() {
 	function createBubble(doc: Document): HTMLElement {
 		const el = doc.createElement('div');
 		el.classList.add('note-zoom-indicator');
-		el.style.cssText = `
-			position: fixed; z-index: 1000;
-			pointer-events: none;
-			background: var(--background-modifier-hover);
-			color: var(--text-normal);
-			border: 1px solid var(--background-modifier-border);
-			border-radius: 6px; padding: 4px 10px;
-			font-size: 13px; font-weight: 600;
-			opacity: 0;
-			transition: opacity 150ms ease;
-		`;
 		doc.body.appendChild(el);
 		return el;
 	}

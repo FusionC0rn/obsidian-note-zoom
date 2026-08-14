@@ -67,7 +67,7 @@ export class NoteZoomSettingTab extends PluginSettingTab {
 			.addSlider(s => s
 				.setLimits(0.05, 0.5, 0.05)
 				.setValue(this.plugin.settings.zoomStep)
-				.setDynamicTooltip()
+				
 				.onChange(async (value) => {
 					this.plugin.settings.zoomStep = value;
 					await this.plugin.saveSettings();
@@ -82,7 +82,7 @@ export class NoteZoomSettingTab extends PluginSettingTab {
 			.addSlider(s => s
 				.setLimits(0.1, 2.0, 0.1)
 				.setValue(this.plugin.settings.pinchSensitivity)
-				.setDynamicTooltip()
+				
 				.onChange(async (value) => {
 					this.plugin.settings.pinchSensitivity = value;
 					await this.plugin.saveSettings();
@@ -97,7 +97,7 @@ export class NoteZoomSettingTab extends PluginSettingTab {
 			.addSlider(s => s
 				.setLimits(0.1, 1.0, 0.05)
 				.setValue(this.plugin.settings.minZoom)
-				.setDynamicTooltip()
+				
 				.onChange(async (value) => {
 					this.plugin.settings.minZoom = value;
 					await this.plugin.saveSettings();
@@ -112,7 +112,7 @@ export class NoteZoomSettingTab extends PluginSettingTab {
 			.addSlider(s => s
 				.setLimits(1.5, 5.0, 0.1)
 				.setValue(this.plugin.settings.maxZoom)
-				.setDynamicTooltip()
+				
 				.onChange(async (value) => {
 					this.plugin.settings.maxZoom = value;
 					await this.plugin.saveSettings();

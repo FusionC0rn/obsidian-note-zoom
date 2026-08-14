@@ -3,7 +3,9 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      # 商店要求 release tag 与 manifest 版本一致、不带 v 前缀
+      - '[0-9]*.[0-9]*.[0-9]*'
+      - '[0-9]*.[0-9]*.[0-9]*-*'
 
 jobs:
   release:
@@ -25,6 +27,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'main.js,manifest.json,styles.css'
+
       - name: Verify committed main.js is up to date
         run: |
           git diff --exit-code main.js || { echo "::error::main.js is stale. Rebuild locally and commit."; exit 1; }
@@ -34,7 +41,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ github.ref_name }}" \
-            main.js manifest.json \
+            main.js manifest.json styles.css \
             --title "${{ github.ref_name }}" \
             --generate-notes \
             --draft

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.1 — 2026-08-14
+
+Store review compliance release:
+
+- Description now ends with punctuation (review requirement)
+- Static styles moved to `styles.css`; dynamic positioning uses Obsidian's `setCssProps` with legacy fallback
+- Language detection uses the official `getLanguage()` API (fallback for older versions)
+- Replaced deprecated `workspace.activeLeaf` with `getActiveViewOfType(MarkdownView)`
+- Cross-window safe: `instanceOf()` checks and `window.setTimeout`/`clearTimeout`
+- Release workflow now attaches build provenance attestation and ships `styles.css`
+
 ## 1.0.0 — 2026-08-14
 
 First stable release. All features consolidated from the beta series (beta.1 tested publicly for over a month, beta.2–4 iterated with community feedback).

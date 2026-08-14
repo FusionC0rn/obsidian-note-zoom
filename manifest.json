@@ -1,9 +1,9 @@
 {
   "id": "note-zoom",
   "name": "Note Zoom",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.0.0",
-  "description": "Zoom note content with Ctrl+Scroll, per-tab memory, sidebar unaffected. 滚轮缩放笔记，标签页独立记忆。",
+  "description": "Zoom note content with Ctrl+Scroll, per-tab memory, sidebar unaffected. 滚轮缩放笔记，标签页独立记忆.",
   "author": "Fusioncorn",
   "authorUrl": "https://github.com/FusionC0rn",
   "isDesktopOnly": true

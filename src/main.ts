@@ -1,4 +1,4 @@
-import { Notice, Plugin, Platform, WorkspaceLeaf } from 'obsidian';
+import { getLanguage, MarkdownView, Notice, Plugin, Platform, WorkspaceLeaf } from 'obsidian';
 import { NoteZoomSettings, DEFAULT_SETTINGS } from './types';
 import { NoteZoomSettingTab } from './settings';
 import { onSingleOrDouble } from './dblclick';
@@ -26,12 +26,12 @@ function leafId(leaf: WorkspaceLeaf): string {
 	return (leaf as any).id as string;
 }
 
-function setElementZoom(el: HTMLElement, z: number) {
-	(el.style as any).zoom = String(z);
+function setElementZoom(el: Element, z: number) {
+	((el as HTMLElement).style as any).zoom = String(z);
 }
 
-function clearElementZoom(el: HTMLElement) {
-	(el.style as any).zoom = '';
+function clearElementZoom(el: Element) {
+	((el as HTMLElement).style as any).zoom = '';
 }
 
 export default class NoteZoomPlugin extends Plugin {
@@ -86,37 +86,37 @@ export default class NoteZoomPlugin extends Plugin {
 		// ── 标签 / 文件切换 ──
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', (leaf) => {
-				if (leaf) Promise.resolve().then(() => this.applyToLeaf(leaf));
+				if (leaf) void Promise.resolve().then(() => this.applyToLeaf(leaf));
 			}),
 		);
 		this.registerEvent(
 			this.app.workspace.on('file-open', () => {
 				if (this.settings.zoomMode !== 'note') return;
-				const leaf = this.app.workspace.activeLeaf;
-				if (leaf) Promise.resolve().then(() => this.applyToLeaf(leaf));
+				const leaf = this.activeLeaf();
+				if (leaf) void Promise.resolve().then(() => this.applyToLeaf(leaf));
 			}),
 		);
 
 		// ── 布局变化（含弹出窗口检测）──
-		let layoutTimer: ReturnType<typeof setTimeout> | null = null;
+		let layoutTimer: number | null = null;
 		this.registerEvent(
 			this.app.workspace.on('layout-change', () => {
-				if (layoutTimer) clearTimeout(layoutTimer);
-				layoutTimer = setTimeout(() => {
+				if (layoutTimer) window.clearTimeout(layoutTimer);
+				layoutTimer = window.setTimeout(() => {
 					this._ensureWindowEvents();
 					this._syncLeafObservers();
 					this.prune();
-					const leaf = this.app.workspace.activeLeaf;
+					const leaf = this.activeLeaf();
 					if (leaf) this.applyToLeaf(leaf);
 				}, LAYOUT_DEBOUNCE_MS);
 			}),
 		);
 
 		// ── 初始化 ──
-		const leaf = this.app.workspace.activeLeaf;
+		const leaf = this.activeLeaf();
 		if (leaf) {
 			this._syncLeafObservers();
-			setTimeout(() => this.applyToLeaf(leaf), INIT_DELAY_MS);
+			window.setTimeout(() => this.applyToLeaf(leaf), INIT_DELAY_MS);
 		}
 	}
 
@@ -127,10 +127,10 @@ export default class NoteZoomPlugin extends Plugin {
 		this._leafObservers.clear();
 		try {
 			for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
-				const el = this.findView(leaf) as HTMLElement | null;
+				const el = this.findView(leaf);
 				if (el) clearElementZoom(el);
 			}
-		} catch (_) { /* 安全卸载 */ }
+		} catch { /* 安全卸载 */ }
 	}
 
 	// ═══════════════════════════════════════
@@ -175,12 +175,13 @@ export default class NoteZoomPlugin extends Plugin {
 	/** 首次运行时跟随 Obsidian 界面语言 */
 	private _detectObsidianLanguage(): Lang {
 		try {
-			const locale = localStorage.getItem('language') || '';
+			// 优先官方 getLanguage()（1.8.7+），老版本回退 localStorage
+			const locale = typeof getLanguage === 'function' ? getLanguage() : localStorage.getItem('language') || '';
 			if (locale.startsWith('zh-TW') || locale.startsWith('zh-HK')) return 'zh-TW';
 			if (locale.startsWith('zh')) return 'zh';
 			if (locale.startsWith('ja')) return 'ja';
 			if (locale.startsWith('ko')) return 'ko';
-		} catch (_) { /* localStorage 不可用时回退英文 */ }
+		} catch { /* 语言读取失败时回退英文 */ }
 		return 'en';
 	}
 
@@ -198,7 +199,7 @@ export default class NoteZoomPlugin extends Plugin {
 		if (cached && cached.mode === mode && container.contains(cached.el)) {
 			return cached.el;
 		}
-		const el = container.querySelector(this._selectorForMode(mode)) as HTMLElement | null;
+		const el = container.querySelector<HTMLElement>(this._selectorForMode(mode));
 		if (el) this._viewElCache.set(leaf, { el, mode });
 		return el;
 	}
@@ -263,7 +264,7 @@ export default class NoteZoomPlugin extends Plugin {
 
 	/** 变更节点是否涉及缩放目标元素（本身匹配或包含其一）——用于过滤打字等无关变更 */
 	private _isZoomTargetNode(node: Node): boolean {
-		if (!(node instanceof Element)) return false;
+		if (!node.instanceOf(Element)) return false;
 		if (node.matches(SELECTOR_PREVIEW) || node.matches(SELECTOR_SOURCE)) return true;
 		return !!(node.querySelector(SELECTOR_PREVIEW) || node.querySelector(SELECTOR_SOURCE));
 	}
@@ -311,7 +312,7 @@ export default class NoteZoomPlugin extends Plugin {
 
 	applyToLeaf(leaf: WorkspaceLeaf) {
 		if (!leaf?.view || leaf.view.getViewType() !== 'markdown') return;
-		const el = this.findView(leaf) as HTMLElement | null;
+		const el = this.findView(leaf);
 		if (!el) return;
 		const z = this.getZoom(leaf);
 		setElementZoom(el, z);
@@ -340,15 +341,14 @@ export default class NoteZoomPlugin extends Plugin {
 	}
 
 	activeLeaf(): WorkspaceLeaf | null {
-		const leaf = this.app.workspace.activeLeaf;
-		if (!leaf?.view || leaf.view.getViewType() !== 'markdown') return null;
-		return leaf;
+		// getActiveViewOfType：替代已弃用的 workspace.activeLeaf
+		return this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ?? null;
 	}
 
 	/** 从事件目标定位光标所在的 markdown leaf（跨窗口安全） */
 	leafFromEvent(e: Event): WorkspaceLeaf | null {
 		const target = e.target as Node | null;
-		if (!(target instanceof Element)) return null;
+		if (!target || !target.instanceOf(Element)) return null;
 		for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
 			const el = leaf.view.containerEl;
 			if (el && el.contains(target)) return leaf;
@@ -389,8 +389,8 @@ export default class NoteZoomPlugin extends Plugin {
 
 	/** 语言切换后刷新状态栏提示文字 */
 	refreshStatusBar() {
-		const leaf = this.app.workspace.activeLeaf;
-		if (leaf && leaf.view?.getViewType() === 'markdown') {
+		const leaf = this.activeLeaf();
+		if (leaf) {
 			this.applyToLeaf(leaf);
 		} else {
 			// 设置面板等非 markdown 视图处于焦点时，仅按当前缩放刷新提示文字
@@ -592,7 +592,7 @@ export default class NoteZoomPlugin extends Plugin {
 	// ═══════════════════════════════════════
 
 	saveDebounced() {
-		if (this._saveTimer) clearTimeout(this._saveTimer);
+		if (this._saveTimer) window.clearTimeout(this._saveTimer);
 		this._saveTimer = window.setTimeout(() => this.saveSettings(), SAVE_DEBOUNCE_MS);
 	}
 }
