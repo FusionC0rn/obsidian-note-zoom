@@ -1,4 +1,4 @@
-import { Plugin, Platform, WorkspaceLeaf } from 'obsidian';
+import { Notice, Plugin, Platform, WorkspaceLeaf } from 'obsidian';
 import { NoteZoomSettings, DEFAULT_SETTINGS } from './types';
 import { NoteZoomSettingTab } from './settings';
 import { onSingleOrDouble } from './dblclick';
@@ -87,6 +87,11 @@ export default class NoteZoomPlugin extends Plugin {
 			id: 'zoom-reset',
 			name: this._('cmd.zoomReset'),
 			callback: () => this.setLeafZoom(ZOOM_DEFAULT),
+		});
+		this.addCommand({
+			id: 'zoom-reset-all',
+			name: this._('cmd.resetAll'),
+			callback: () => { void this.resetAllZoom(); },
 		});
 
 		// ── 滚轮 + 触控板（所有窗口）──
@@ -339,6 +344,17 @@ export default class NoteZoomPlugin extends Plugin {
 	setLeafZoom(z: number) {
 		const leaf = this.activeLeaf();
 		if (leaf) this.setZoom(leaf, z);
+	}
+
+	/** 一键重置所有标签页与笔记的缩放（设置按钮与命令共用） */
+	async resetAllZoom() {
+		this.zoomLevels.clear();
+		this.noteZoomLevels.clear();
+		await this.saveSettings();
+		for (const l of this.app.workspace.getLeavesOfType('markdown')) {
+			this.applyToLeaf(l);
+		}
+		new Notice(this._('resetAll.done'));
 	}
 
 	activeLeaf(): WorkspaceLeaf | null {

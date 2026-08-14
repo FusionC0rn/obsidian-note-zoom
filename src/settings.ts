@@ -144,5 +144,13 @@ export class NoteZoomSettingTab extends PluginSettingTab {
 					this.plugin.settings.presets = value;
 					await this.plugin.saveSettings();
 				}));
+
+		// ── Reset All ──
+		new Setting(containerEl)
+			.setName(this.t('resetAll'))
+			.setDesc(this.t('resetAll.desc'))
+			.addButton(b => b
+				.setButtonText(this.t('resetAll.btn'))
+				.onClick(() => { void this.plugin.resetAllZoom(); }));
 	}
 }

@@ -91,7 +91,7 @@ All three commands are bindable to custom hotkeys in **Settings → Hotkeys**.
 
 ## ⚠️ Known Limitations
 
-- **Desktop-focused** — the plugin technically works on mobile but the core experience (modifier + scroll) requires a physical keyboard and mouse/trackpad.
+- **Desktop-only** — this plugin targets the desktop app; mobile is not supported yet.
 
 ---
 

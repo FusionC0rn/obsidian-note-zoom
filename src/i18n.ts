@@ -105,6 +105,9 @@ const dict: Record<string, Record<Lang, string>> = {
 	'cmd.zoomReset': {
 		en: 'Reset zoom', zh: '重置缩放', 'zh-TW': '重設縮放', ja: 'ズームリセット', ko: '확대/축소 초기화',
 	},
+	'cmd.resetAll': {
+		en: 'Reset all zoom levels', zh: '重置全部缩放', 'zh-TW': '重設全部縮放', ja: 'すべてのズームをリセット', ko: '모든 확대/축소 초기화',
+	},
 	// ── Status bar ──
 	'statusBar.tooltip': {
 		en: '{mod}+Scroll to zoom · Click to cycle presets · Double-click for slider',
@@ -112,6 +115,27 @@ const dict: Record<string, Record<Lang, string>> = {
 		'zh-TW': '{mod}+滾輪縮放 · 點擊循環預設 · 雙擊彈出滑塊',
 		ja: '{mod}+スクロールでズーム · クリックでプリセット切替 · ダブルクリックでスライダー',
 		ko: '{mod}+스크롤로 확대/축소 · 클릭으로 사전 설정 순환 · 더블클릭으로 슬라이더',
+	},
+	// ── Reset All ──
+	'resetAll': {
+		en: 'Reset All Zoom', zh: '重置全部缩放', 'zh-TW': '重設全部縮放', ja: 'すべてのズームをリセット', ko: '모든 확대/축소 초기화',
+	},
+	'resetAll.desc': {
+		en: 'Clear all saved zoom levels for every tab and note.',
+		zh: '清空所有标签页和笔记已保存的缩放比例。',
+		'zh-TW': '清除所有分頁和筆記已儲存的縮放比例。',
+		ja: 'すべてのタブとノートの保存済みズーム値を消去します。',
+		ko: '모든 탭과 노트에 저장된 확대/축소 값을 지웁니다.',
+	},
+	'resetAll.btn': {
+		en: 'Reset', zh: '重置', 'zh-TW': '重設', ja: 'リセット', ko: '초기화',
+	},
+	'resetAll.done': {
+		en: 'All zoom levels reset.',
+		zh: '全部缩放已重置。',
+		'zh-TW': '全部縮放已重設。',
+		ja: 'すべてのズームをリセットしました。',
+		ko: '모든 확대/축소가 초기화되었습니다.',
 	},
 };
 
