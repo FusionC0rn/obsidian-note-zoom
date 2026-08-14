@@ -13,12 +13,14 @@ Hold a modifier key + scroll to visually zoom notes in and out. Lightweight, ins
 - **Ctrl/Cmd + Scroll** to zoom in/out — lightweight, instant visual scaling
 - **Pinch-to-zoom** — two-finger pinch on Precision Touchpads
 - **Pop-out window support** — zoom works in notes opened in separate windows
+- **Zoom feedback bubble** — a % indicator appears at your cursor while zooming
 - **Per-tab memory** — every tab remembers its own zoom level independently
 - **Per-note mode** (optional) — each note file remembers its zoom, persists across tab switches
 - **Double-click slider** — double-click the 🔍 in the status bar to open a draggable zoom slider
 - **Sidebar & UI unaffected** — only the note content scales, toolbar and panels stay sharp
 - **Status bar indicator** — shows current zoom %, click to cycle presets, double-click for slider
-- **3 commands** — Zoom in, Zoom out, Reset zoom (hotkey-friendly)
+- **Reset all zoom** — one click or hotkey clears every saved zoom level
+- **4 commands** — Zoom in, Zoom out, Reset zoom, Reset all zoom (hotkey-friendly)
 - **5 languages** — English, 简体中文, 繁體中文, 日本語, 한국어
 - **Fully configurable** — modifier key, step size, range limits, presets, zoom mode
 
@@ -69,8 +71,9 @@ Then enable the plugin and reload.
 | Open zoom slider | Double-click 🔍 in the status bar |
 | Cycle presets | Click 🔍 in the status bar |
 | Reset to 100% | `Ctrl+P` → `Reset zoom` |
+| Reset all zoom | `Ctrl+P` → `Reset all zoom levels` |
 
-All three commands are bindable to custom hotkeys in **Settings → Hotkeys**.
+All four commands are bindable to custom hotkeys in **Settings → Hotkeys**.
 
 ---
 
